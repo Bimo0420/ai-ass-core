@@ -1,0 +1,22 @@
+# Core
+llama-index-core>=0.10.56
+llama-index>=0.10.56
+
+# LLM and Embeddings
+llama-index-llms-ollama>=0.1.3
+llama-index-embeddings-ollama>=0.1.2
+
+# Vector Store - используем последнюю совместимую версию
+llama-index-vector-stores-postgres>=0.7.1
+
+# Web Framework
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.9
+
+# Database
+pydantic>=2.6.0
+psycopg2-binary>=2.9.9
+asyncpg>=0.29.0
+pgvector>=0.3.0
+sqlalchemy>=2.0.23

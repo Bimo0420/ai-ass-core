@@ -1,0 +1,315 @@
+# LLM сервисы и приложения (CPU версия)
+version: '3.8'
+
+volumes:
+  n8n-data:
+  ollama-data:
+  openwebui-data:
+  pipelines:
+  docling-data:
+
+services:
+  # n8n - платформа автоматизации
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    networks:
+      - ai-network
+    environment:
+      - N8N_HOST=n8n.${DOMAIN}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://n8n.${DOMAIN}/
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=${POSTGRES_HOST}
+      - DB_POSTGRESDB_PORT=${POSTGRES_PORT}
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_SCHEMA=${POSTGRES_DB_SCHEMA}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - OLLAMA_HOST=${OLLAMA_URL}
+      - EXECUTIONS_MODE=queue
+      - QUEUE_BULL_REDIS_HOST=redis
+      - N8N_METRICS=true
+      - N8N_EXPRESS_TRUST_PROXY=true
+      - N8N_RUNNERS_ENABLED=true
+      - QUEUE_BULL_REDIS_ENABLED=true
+      - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=true
+      - N8N_METRICS_INCLUDE_DEFAULT_METRICS=true
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./shared:/data/shared
+      - ./llamaindex/data/documents:/app/data/documents
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.${DOMAIN}`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=letsencrypt"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+
+  # n8n Worker
+  n8n-worker:
+    image: n8nio/n8n:latest
+    container_name: n8n-worker
+    restart: unless-stopped
+    networks:
+      - ai-network
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=${POSTGRES_HOST}
+      - DB_POSTGRESDB_PORT=${POSTGRES_PORT}
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_SCHEMA=${POSTGRES_DB_SCHEMA}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_ENABLED=true
+      - N8N_METRICS=true
+      - N8N_RUNNERS_ENABLED=false
+      - EXECUTIONS_MODE=queue
+      - N8N_METRICS_INCLUDE_DEFAULT_METRICS=true
+    command: worker
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./shared:/data/shared
+      - ./llamaindex/data/documents:/app/data/documents
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Ollama - локальные LLM модели (CPU)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    networks:
+      - ai-network
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+    volumes:
+      - ollama-data:/root/.ollama
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ollama.rule=Host(`ollama.${DOMAIN}`)"
+      - "traefik.http.routers.ollama.entrypoints=websecure"
+      - "traefik.http.routers.ollama.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ollama.loadbalancer.server.port=11434"
+
+  # Open WebUI - веб-интерфейс для LLM
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: openwebui
+    restart: unless-stopped
+    networks:
+      - ai-network
+    environment:
+      - OLLAMA_BASE_URL=${OLLAMA_URL}
+      - WEBUI_AUTH=true
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
+      - CORS_ALLOW_ORIGIN=https://openwebui.${DOMAIN}
+    volumes:
+      - openwebui-data:/app/backend/data
+    depends_on:
+      - ollama
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openwebui.rule=Host(`openwebui.${DOMAIN}`)"
+      - "traefik.http.routers.openwebui.entrypoints=websecure"
+      - "traefik.http.routers.openwebui.tls.certresolver=letsencrypt"
+      - "traefik.http.services.openwebui.loadbalancer.server.port=8080"
+
+  # Supabase Kong Gateway
+  supabase-kong:
+    image: kong:2.8.1
+    container_name: supabase-kong
+    restart: unless-stopped
+    networks:
+      - ai-network
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - ./supabase/kong.yml:/var/lib/kong/kong.yml:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.supabase.rule=Host(`supabase.${DOMAIN}`)"
+      - "traefik.http.routers.supabase.entrypoints=websecure"
+      - "traefik.http.routers.supabase.tls.certresolver=letsencrypt"
+      - "traefik.http.services.supabase.loadbalancer.server.port=8000"
+
+  # Supabase Auth
+  supabase-auth:
+    image: supabase/gotrue:v2.151.0
+    container_name: supabase-auth
+    restart: unless-stopped
+    networks:
+      - ai-network
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: https://supabase.${DOMAIN}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?search_path=auth
+      GOTRUE_SITE_URL: https://supabase.${DOMAIN}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Supabase REST API
+  supabase-rest:
+    image: postgrest/postgrest:v12.0.1
+    container_name: supabase-rest
+    restart: unless-stopped
+    networks:
+      - ai-network
+    environment:
+      PGRST_DB_URI: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Supabase Storage
+  supabase-storage:
+    image: supabase/storage-api:v1.0.6
+    container_name: supabase-storage
+    restart: unless-stopped
+    networks:
+      - ai-network
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: ${SUPABASE_URL}
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      GLOBAL_S3_BUCKET: stub
+    volumes:
+      - ./supabase/storage:/var/lib/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Supabase Studio
+  supabase-studio:
+    image: supabase/studio:latest
+    container_name: supabase-studio
+    restart: unless-stopped
+    networks:
+      - ai-network
+    environment:
+      SUPABASE_URL: https://supabase.${DOMAIN}
+      SUPABASE_PUBLIC_URL: https://supabase.${DOMAIN}
+      STUDIO_PG_META_URL: http://supabase-meta:8080
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    ports:
+      - "3000:3000"
+
+  # Supabase Metadata
+  supabase-meta:
+    image: supabase/postgres-meta:v0.91.7
+    container_name: supabase-meta
+    restart: unless-stopped
+    networks:
+      - ai-network
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: ${POSTGRES_HOST}
+      PG_META_DB_PORT: ${POSTGRES_PORT}
+      PG_META_DB_NAME: ${POSTGRES_DB}
+      PG_META_DB_USER: ${POSTGRES_USER}
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      PG_META_DB_SSL_MODE: disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # LlamaIndex RAG API
+  llamaindex:
+    build:
+      context: ./llamaindex
+      dockerfile: Dockerfile
+    image: llamaindex-api:latest
+    container_name: llamaindex
+    restart: unless-stopped
+    networks:
+      - ai-network
+    ports:
+      - "8000:8000"
+    environment:
+      OLLAMA_URL: ${OLLAMA_URL}
+      SUPABASE_URL: ${SUPABASE_URL}
+      POSTGRES_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./llamaindex/data:/app/data
+    depends_on:
+      - ollama
+      - postgres
+
+  # Docling - парсинг документов
+  docling:
+    image: ghcr.io/docling-project/docling-serve
+    container_name: docling
+    restart: unless-stopped
+    networks:
+      - ai-network
+    ports:
+      - "5001:5001"
+    environment:
+      - DOCLING_SERVE_ENABLE_UI=true
+      - DOCLING_SERVE_MAX_SYNC_WAIT=300
+    volumes:
+      - docling-data:/app/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.docling.rule=Host(`docling.${DOMAIN}`)"
+      - "traefik.http.routers.docling.entrypoints=websecure"
+      - "traefik.http.routers.docling.tls.certresolver=letsencrypt"
+      - "traefik.http.services.docling.loadbalancer.server.port=5001"
+
+  # Pipelines для OpenWebUI
+  pipelines:
+    image: ghcr.io/open-webui/pipelines:main
+    container_name: openwebui-pipelines
+    restart: unless-stopped
+    networks:
+      - ai-network
+    ports:
+      - "9099:9099"
+    volumes:
+      - pipelines:/app/pipelines
+    environment:
+      PIPELINES_API_KEY: 0p3n-w3bu!
+      LANGFUSE_HOST: http://langfuse:3000

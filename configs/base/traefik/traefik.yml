@@ -1,0 +1,66 @@
+# =========================================
+# СТАТИЧЕСКАЯ КОНФИГУРАЦИЯ TRAEFIK
+# =========================================
+
+# Логирование
+log:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: common  # common, json
+  filePath: /var/log/traefik.log
+
+# Логи доступа
+accessLog:
+  filePath: /var/log/access.log
+  format: common
+
+# API и Dashboard
+api:
+  dashboard: true  # Включить веб-интерфейс
+  insecure: false  # Отключить незащищенный доступ (будем использовать через домен)
+
+# Провайдеры (источники конфигурации)
+providers:
+  # Docker провайдер - автоматическое обнаружение контейнеров
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false  # Не публиковать все контейнеры автоматически
+    network: ai-network  # Использовать определенную Docker сеть
+    watch: true  # Следить за изменениями в реальном времени
+  
+  # Файловый провайдер - для дополнительных конфигураций
+  file:
+    directory: /config
+    watch: true  # Автоматически перезагружать при изменениях
+
+# Точки входа (entrypoints)
+entryPoints:
+  # HTTP (порт 80)
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure  # Автоматически перенаправлять на HTTPS
+          scheme: https
+          permanent: true
+  
+  # HTTPS (порт 443)
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: letsencrypt  # Использовать Let's Encrypt для SSL
+
+# Решатели сертификатов (Certificate Resolvers)
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: alexey.a.vikulin@gmail.com  # Ваш email для уведомлений
+      storage: /acme/acme.json  # Где хранить сертификаты
+      httpChallenge:
+        entryPoint: web  # Использовать HTTP challenge для получения сертификатов
+
+# Глобальные настройки
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
