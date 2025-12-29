@@ -3,6 +3,7 @@ version: '3.8'
 
 networks:
   ai-network:
+    name: ai-network
     driver: bridge
 
 volumes:
@@ -13,7 +14,7 @@ volumes:
 services:
   # Traefik - реверс-прокси и управление SSL
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3.6
     container_name: traefik
     restart: unless-stopped
     security_opt:
@@ -26,16 +27,20 @@ services:
     environment:
       - CF_API_EMAIL=${CF_API_EMAIL}
       - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
+      - DOCKER_API_VERSION=1.44
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/traefik.yml:/traefik.yml:ro
       - ./traefik/config:/config:ro
       - traefik-acme:/acme
     command:
+      - --log.level=DEBUG
       - --api.dashboard=true
+      - --api.insecure=true
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=ai-network
+      - --providers.docker.endpoint=unix:///var/run/docker.sock
       - --providers.file.directory=/config
       - --providers.file.watch=true
       - --entrypoints.web.address=:80

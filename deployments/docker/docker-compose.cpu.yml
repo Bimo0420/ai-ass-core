@@ -38,10 +38,11 @@ services:
       - QUEUE_BULL_REDIS_ENABLED=true
       - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=true
       - N8N_METRICS_INCLUDE_DEFAULT_METRICS=true
+      - N8N_RESTRICT_FILE_ACCESS_TO=/data/shared;/app/data;/home/node/.n8n-files
     volumes:
       - n8n-data:/home/node/.n8n
       - ./shared:/data/shared
-      - ./llamaindex/data/documents:/app/data/documents
+      - /home/ubuntu/ai-ass-core/deployments/docker/llamaindex/data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,11 +77,13 @@ services:
       - N8N_RUNNERS_ENABLED=false
       - EXECUTIONS_MODE=queue
       - N8N_METRICS_INCLUDE_DEFAULT_METRICS=true
+      - N8N_RESTRICT_FILE_ACCESS_TO=/data/shared;/app/data;/home/node/.n8n-files
+      - N8N_BLOCK_NODES=
     command: worker
     volumes:
       - n8n-data:/home/node/.n8n
       - ./shared:/data/shared
-      - ./llamaindex/data/documents:/app/data/documents
+      - /home/ubuntu/ai-ass-core/deployments/docker/llamaindex/data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -255,7 +258,7 @@ services:
   # LlamaIndex RAG API
   llamaindex:
     build:
-      context: ./llamaindex
+      context: ../../apps/llamaindex
       dockerfile: Dockerfile
     image: llamaindex-api:latest
     container_name: llamaindex
