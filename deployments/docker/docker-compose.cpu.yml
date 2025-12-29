@@ -121,10 +121,14 @@ services:
       - WEBUI_AUTH=true
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
       - CORS_ALLOW_ORIGIN=https://openwebui.${DOMAIN}
+      # Pipelines integration for Langfuse tracing (filter pipelines)
+      - PIPELINES_URLS=http://pipelines:9099
+      - PIPELINES_API_KEY=0p3n-w3bu!
     volumes:
       - openwebui-data:/app/backend/data
     depends_on:
       - ollama
+      - pipelines
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.openwebui.rule=Host(`openwebui.${DOMAIN}`)"
@@ -302,7 +306,7 @@ services:
       - "traefik.http.routers.docling.tls.certresolver=letsencrypt"
       - "traefik.http.services.docling.loadbalancer.server.port=5001"
 
-  # Pipelines для OpenWebUI
+  # Pipelines для OpenWebUI с Langfuse трейсингом
   pipelines:
     image: ghcr.io/open-webui/pipelines:main
     container_name: openwebui-pipelines
@@ -314,5 +318,10 @@ services:
     volumes:
       - pipelines:/app/pipelines
     environment:
+      # API key for authentication
       PIPELINES_API_KEY: 0p3n-w3bu!
+      # Langfuse tracing configuration
       LANGFUSE_HOST: http://langfuse:3000
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      DEBUG_MODE: "true"
