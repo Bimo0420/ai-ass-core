@@ -3,7 +3,7 @@
 # Переменные
 COMPOSE_BASE := docker compose -f deployments/docker/docker-compose.base.yml
 COMPOSE_CPU := $(COMPOSE_BASE) -f deployments/docker/docker-compose.cpu.yml
-COMPOSE_GPU := $(COMPOSE_BASE) -f deployments/docker/docker-compose.gpu.yml
+COMPOSE_GPU := $(COMPOSE_CPU) -f deployments/docker/docker-compose.gpu.yml
 COMPOSE_MONITORING := -f deployments/docker/docker-compose.monitoring.yml
 
 help: ## Показать помощь
@@ -11,10 +11,16 @@ help: ## Показать помощь
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 up-cpu: ## Запустить стек с CPU
-	$(COMPOSE_CPU) $(COMPOSE_MONITORING) up -d
+	$(COMPOSE_CPU) $(COMPOSE_MONITORING) up -d --build
 
 up-gpu: ## Запустить стек с GPU
-	$(COMPOSE_GPU) $(COMPOSE_MONITORING) up -d
+	$(COMPOSE_GPU) $(COMPOSE_MONITORING) up -d --build
+
+build-cpu: ## Собрать образы для CPU
+	$(COMPOSE_CPU) $(COMPOSE_MONITORING) build
+
+build-gpu: ## Собрать образы для GPU
+	$(COMPOSE_GPU) $(COMPOSE_MONITORING) build
 
 up-base: ## Запустить только базовые сервисы
 	$(COMPOSE_BASE) up -d
@@ -38,7 +44,7 @@ ps: ## Показать статус контейнеров
 	$(COMPOSE_CPU) $(COMPOSE_MONITORING) ps
 
 pull: ## Обновить все образы
-	$(COMPOSE_CPU) $(COMPOSE_MONITORING) pull
+	$(COMPOSE_CPU) $(COMPOSE_MONITORING) pull --ignore-pull-failures
 
 backup: ## Создать резервную копию
 	./scripts/backup/backup.sh

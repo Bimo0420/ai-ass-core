@@ -42,7 +42,7 @@ services:
     volumes:
       - n8n-data:/home/node/.n8n
       - ./shared:/data/shared
-      - /home/ubuntu/ai-ass-core/deployments/docker/llamaindex/data:/app/data
+      - /opt/ai-ass-core/deployments/docker/llamaindex/data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,7 +83,7 @@ services:
     volumes:
       - n8n-data:/home/node/.n8n
       - ./shared:/data/shared
-      - /home/ubuntu/ai-ass-core/deployments/docker/llamaindex/data:/app/data
+      - /opt/ai-ass-core/deployments/docker/llamaindex/data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -265,6 +265,7 @@ services:
       context: ../../apps/llamaindex
       dockerfile: Dockerfile
     image: llamaindex-api:latest
+    pull_policy: build
     container_name: llamaindex
     restart: unless-stopped
     networks:

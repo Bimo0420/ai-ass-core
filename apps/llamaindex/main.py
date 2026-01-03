@@ -90,11 +90,11 @@ async def root():
 async def index_document(file: UploadFile = File(...)):
     """Загрузка и индексация документа"""
     try:
-        # Создание директории data если её нет
-        os.makedirs("./data", exist_ok=True)
+        # Используем /tmp для временных файлов (всегда доступен для записи)
+        temp_dir = "/tmp"
         
         # Сохранение файла
-        file_path = f"./data/{file.filename}"
+        file_path = f"{temp_dir}/{file.filename}"
         with open(file_path, "wb") as f:
             content = await file.read()
             f.write(content)
@@ -130,8 +130,8 @@ class IndexTextRequest(BaseModel):
 async def index_text(request: IndexTextRequest):
     """Индексация текста напрямую без файла"""
     try:
-        # Создаём временный файл
-        file_path = f"./data/{request.filename}"
+        # Создаём временный файл в /tmp
+        file_path = f"/tmp/{request.filename}"
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(request.content)
         

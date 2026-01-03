@@ -243,7 +243,7 @@ make ollama-pull
 
 # или вручную:
 
-docker exec -it ollama ollama pull llama3.2
+docker exec -it ollama ollama pull gpt-oss:20b
 docker exec -it ollama ollama pull nomic-embed-text
 
 ```
