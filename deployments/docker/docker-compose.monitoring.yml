@@ -157,6 +157,15 @@ services:
     volumes:
       - langfuse_clickhouse_data:/var/lib/clickhouse
       - langfuse_clickhouse_logs:/var/log/clickhouse-server
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.clickhouse.rule=Host(`clickhouse.${DOMAIN}`)"
+      - "traefik.http.routers.clickhouse.entrypoints=websecure"
+      - "traefik.http.routers.clickhouse.tls.certresolver=letsencrypt"
+      - "traefik.http.services.clickhouse.loadbalancer.server.port=8123"
+      - "traefik.http.routers.clickhouse-http.rule=Host(`clickhouse.${DOMAIN}`)"
+      - "traefik.http.routers.clickhouse-http.entrypoints=web"
+      - "traefik.http.routers.clickhouse-http.middlewares=redirect-to-https@docker"
 
   # MinIO для Langfuse S3 storage
   langfuse-minio:
