@@ -1,0 +1,23 @@
+CREATE OR REPLACE FUNCTION match_llamaindex_vectors(
+  query_embedding vector(768),
+  match_threshold float DEFAULT 0.5,
+  match_count int DEFAULT 5
+)
+RETURNS TABLE (
+  id text,
+  text text,
+  metadata_ jsonb,
+  similarity float
+)
+LANGUAGE sql STABLE
+AS $$
+  SELECT
+    id,
+    text,
+    metadata_,
+    1 - (embedding <=> query_embedding) AS similarity
+  FROM public.data_llamaindex_vectors
+  WHERE 1 - (embedding <=> query_embedding) > match_threshold
+  ORDER BY embedding <=> query_embedding
+  LIMIT match_count;
+$$;

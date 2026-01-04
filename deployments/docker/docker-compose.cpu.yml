@@ -121,6 +121,9 @@ services:
       - WEBUI_AUTH=true
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
       - CORS_ALLOW_ORIGIN=https://openwebui.${DOMAIN}
+      - LANGFUSE_HOST=http://langfuse:3000
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       # Pipelines integration for Langfuse tracing (filter pipelines)
       - PIPELINES_URLS=http://pipelines:9099
       - PIPELINES_API_KEY=0p3n-w3bu!

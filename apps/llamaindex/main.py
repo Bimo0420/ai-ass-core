@@ -52,7 +52,7 @@ vector_store = PGVectorStore.from_params(
     password=os.getenv("POSTGRES_PASSWORD", "password"),
     port=int(os.getenv("POSTGRES_PORT", "5432")),
     user=os.getenv("POSTGRES_USER", "postgres"),
-    table_name="data_llamaindex_vectors",
+    table_name="llamaindex_vectors",
     embed_dim=768
 )
 
