@@ -10,6 +10,7 @@ volumes:
   traefik-acme:
   postgres-data:
   redis-data:
+  redis-insight-data:
 
 services:
   # Traefik - реверс-прокси и управление SSL
@@ -91,3 +92,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # RedisInsight - визуализация Redis
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: redis-insight
+    restart: unless-stopped
+    networks:
+      - ai-network
+    environment:
+      - RIPROXYENABLE=true
+    volumes:
+      - redis-insight-data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.redisinsight.rule=Host(`redisinsight.${DOMAIN}`)"
+      - "traefik.http.routers.redisinsight.entrypoints=web,websecure"
+      - "traefik.http.routers.redisinsight.tls=true"
+      - "traefik.http.routers.redisinsight.tls.certresolver=letsencrypt"
+      - "traefik.http.services.redisinsight.loadbalancer.server.port=5540"
+      - "traefik.http.routers.redisinsight-http.rule=Host(`redisinsight.${DOMAIN}`)"
+      - "traefik.http.routers.redisinsight-http.entrypoints=web"
+      - "traefik.http.routers.redisinsight-http.middlewares=redirect-to-https"
