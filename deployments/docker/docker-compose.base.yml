@@ -11,6 +11,7 @@ volumes:
   postgres-data:
   redis-data:
   redis-insight-data:
+  portainer_data:
 
 services:
   # Traefik - реверс-прокси и управление SSL
@@ -114,3 +115,26 @@ services:
       - "traefik.http.routers.redisinsight-http.rule=Host(`redisinsight.${DOMAIN}`)"
       - "traefik.http.routers.redisinsight-http.entrypoints=web"
       - "traefik.http.routers.redisinsight-http.middlewares=redirect-to-https"
+
+  # Portainer - управление Docker
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - ai-network
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer_data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+      - "traefik.http.routers.portainer-http.rule=Host(`portainer.${DOMAIN}`)"
+      - "traefik.http.routers.portainer-http.entrypoints=web"
+      - "traefik.http.routers.portainer-http.middlewares=redirect-to-https"
