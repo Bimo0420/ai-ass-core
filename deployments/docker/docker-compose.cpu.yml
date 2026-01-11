@@ -7,6 +7,7 @@ volumes:
   openwebui-data:
   pipelines:
   docling-data:
+  huggingface-cache:  # Кэш для моделей reranker
 
 services:
   # n8n - платформа автоматизации
@@ -38,10 +39,11 @@ services:
       - QUEUE_BULL_REDIS_ENABLED=true
       - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=true
       - N8N_METRICS_INCLUDE_DEFAULT_METRICS=true
+      - N8N_RESTRICT_FILE_ACCESS_TO=/data/shared;/app/data;/home/node/.n8n-files
     volumes:
       - n8n-data:/home/node/.n8n
       - ./shared:/data/shared
-      - ./llamaindex/data/documents:/app/data/documents
+      - /home/ubuntu/ai-ass-core/deployments/docker/llamaindex/data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,11 +78,13 @@ services:
       - N8N_RUNNERS_ENABLED=false
       - EXECUTIONS_MODE=queue
       - N8N_METRICS_INCLUDE_DEFAULT_METRICS=true
+      - N8N_RESTRICT_FILE_ACCESS_TO=/data/shared;/app/data;/home/node/.n8n-files
+      - N8N_BLOCK_NODES=
     command: worker
     volumes:
       - n8n-data:/home/node/.n8n
       - ./shared:/data/shared
-      - ./llamaindex/data/documents:/app/data/documents
+      - /home/ubuntu/ai-ass-core/deployments/docker/llamaindex/data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -255,7 +259,7 @@ services:
   # LlamaIndex RAG API
   llamaindex:
     build:
-      context: ./llamaindex
+      context: ../../apps/llamaindex
       dockerfile: Dockerfile
     image: llamaindex-api:latest
     container_name: llamaindex
@@ -266,7 +270,8 @@ services:
       - "8000:8000"
     environment:
       OLLAMA_URL: ${OLLAMA_URL}
-      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_URL: http://supabase-kong:8000
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       POSTGRES_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -274,6 +279,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - ./llamaindex/data:/app/data
+      - huggingface-cache:/root/.cache/huggingface  # Кэш для reranker модели
     depends_on:
       - ollama
       - postgres
@@ -313,3 +319,5 @@ services:
     environment:
       PIPELINES_API_KEY: 0p3n-w3bu!
       LANGFUSE_HOST: http://langfuse:3000
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}

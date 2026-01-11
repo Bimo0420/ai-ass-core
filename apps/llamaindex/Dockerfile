@@ -32,7 +32,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Копирование кода приложения
 COPY main.py .
-COPY data ./data
+#COPY data ./data
 
 # Создание непривилегированного пользователя для безопасности
 RUN useradd -m -u 1000 appuser && \

@@ -1,10 +1,10 @@
 .PHONY: help up down restart logs backup restore ps clean
 
 # Переменные
-COMPOSE_BASE := docker compose -f docker-compose.base.yml
-COMPOSE_CPU := $(COMPOSE_BASE) -f docker-compose.cpu.yml
-COMPOSE_GPU := $(COMPOSE_BASE) -f docker-compose.gpu.yml
-COMPOSE_MONITORING := -f docker-compose.monitoring.yml
+COMPOSE_BASE := docker compose -f deployments/docker/docker-compose.base.yml
+COMPOSE_CPU := $(COMPOSE_BASE) -f deployments/docker/docker-compose.cpu.yml
+COMPOSE_GPU := $(COMPOSE_BASE) -f deployments/docker/docker-compose.gpu.yml
+COMPOSE_MONITORING := -f deployments/docker/docker-compose.monitoring.yml
 
 help: ## Показать помощь
 	@echo "Доступные команды:"
