@@ -49,12 +49,15 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - ./llamaindex/data:/app/data
+      - ../../apps/llamaindex/main.py:/app/main.py
       - huggingface-cache:/root/.cache/huggingface
     depends_on:
       - ollama
       - postgres
 
+networks:
+  ai-network:
+
 volumes:
   ollama-data:
   huggingface-cache:
-

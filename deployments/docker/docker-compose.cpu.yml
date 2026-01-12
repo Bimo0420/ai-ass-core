@@ -122,6 +122,11 @@ services:
       - WEBUI_AUTH=true
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
       - CORS_ALLOW_ORIGIN=https://openwebui.${DOMAIN}
+      # Langfuse Integration
+      - ENABLE_LANGFUSE=true
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_HOST=http://langfuse:3000
     volumes:
       - openwebui-data:/app/backend/data
     depends_on:
@@ -279,6 +284,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - ./llamaindex/data:/app/data
+      - ../../apps/llamaindex/main.py:/app/main.py
       - huggingface-cache:/root/.cache/huggingface  # Кэш для reranker модели
     depends_on:
       - ollama
@@ -321,3 +327,7 @@ services:
       LANGFUSE_HOST: http://langfuse:3000
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+
+networks:
+  ai-network:
+    external: true

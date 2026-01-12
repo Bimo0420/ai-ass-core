@@ -334,10 +334,19 @@ async def hybrid_query(request: HybridQueryRequest):
             # Формируем результат
             results = []
             for node_with_score in reranked_nodes:
+                metadata = node_with_score.node.metadata
+                # Remove cryptic IDs and internal hidden fields to prevent the agent from using them
+                clean_metadata = {
+                    k: v for k, v in metadata.items() 
+                    if k not in ["doc_id", "node_id", "ref_doc_id", "document_id"] 
+                    and not k.startswith("_")
+                }
+                
                 results.append({
                     "content": node_with_score.node.text,
                     "score": float(node_with_score.score) if node_with_score.score else None,
-                    "metadata": node_with_score.node.metadata
+                    "source": clean_metadata.get("file_name", "Unknown"),
+                    "metadata": clean_metadata
                 })
             
             return HybridQueryResponse(
@@ -350,10 +359,18 @@ async def hybrid_query(request: HybridQueryRequest):
             # Без reranking - возвращаем как есть
             results = []
             for doc in documents[:request.top_k]:
+                metadata = doc.get("metadata", {})
+                clean_metadata = {
+                    k: v for k, v in metadata.items() 
+                    if k not in ["doc_id", "node_id", "ref_doc_id", "document_id"] 
+                    and not k.startswith("_")
+                }
+                
                 results.append({
                     "content": doc.get("content", ""),
                     "score": None,
-                    "metadata": doc.get("metadata", {})
+                    "source": clean_metadata.get("file_name", "Unknown"),
+                    "metadata": clean_metadata
                 })
             
             return HybridQueryResponse(

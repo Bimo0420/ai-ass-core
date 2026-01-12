@@ -1,5 +1,6 @@
 {
-  "name": "AI Agent with Hybrid Search & Reranking",
+  "name": "AI Agent Hybrid Search (Updated)",
+  "active": false,
   "nodes": [
     {
       "parameters": {
@@ -20,7 +21,7 @@
     {
       "parameters": {
         "options": {
-          "systemMessage": "You are a helpful AI assistant acting as a corporate knowledge base expert.\nLANGUAGE REQUIREMENT: ANSWER ONLY IN RUSSIAN.\n\nCRITICAL RULES (DO NOT IGNORE):\n1. **NO INTERNAL MONOLOGUE.** Do not output text like \"Let's analyze\", \"We have results\", \"Since the user asked\", \"Strategy:\", or \"Thought:\".\n2. **DIRECT ANSWER ONLY.** Start your response immediately with the answer to the user's question.\n3. **SILENT PROCESSING.** Analyze the search tool outputs silently. Do not describe what you found before giving the answer.\n4. If no information is found, state it clearly in Russian.\n\nИнструкции на русском:\n- Отвечай сразу по сути вопроса.\n- Не описывай свой процесс мышления (\"Давайте посмотрим...\", \"Результаты поиска содержат...\").\n- Используй найденную информацию для формирования ответа, но не пересказывай сырые данные инструмента.\n- Форматируй ответ списками для удобства чтения."
+          "systemMessage": "You are a helpful AI assistant acting as a corporate knowledge base expert.\nLANGUAGE REQUIREMENT: ANSWER ONLY IN RUSSIAN.\n\n## Citing Sources:\n- **ALWAYS** use the filename from the \"source\" field for citations.\n- **DO NOT** use long UUIDs or technical IDs in the final answer.\n- Example: \"Согласно документу 'Технический регламент.pdf', ...\"\n\nCRITICAL RULES (DO NOT IGNORE):\n1. **NO INTERNAL MONOLOGUE.** Do not output text like \"Let's analyze\", \"We have results\", \"Since the user asked\", \"Strategy:\", or \"Thought:\".\n2. **DIRECT ANSWER ONLY.** Start your response immediately with the answer to the user's question.\n3. **SILENT PROCESSING.** Analyze the search tool outputs silently. Do not describe what you found before giving the answer.\n4. If no information is found, state it clearly in Russian.\n\nИнструкции на русском:\n- Отвечай сразу по сути вопроса.\n- Цитируй источники, используя ИМЯ ФАЙЛА из поля \"source\".\n- Не выводи свои размышления. Сразу давай финальный ответ.\n- Форматируй ответ списками для удобства чтения."
         }
       },
       "id": "ai-agent-1",
@@ -105,7 +106,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Очистка вывода от Chain-of-Thought (умная фильтрация по языкам)\nlet text = $input.item.json.output;\n\nif (text && typeof text === 'string') {\n  const lines = text.split('\\n');\n  let cleanLines = [];\n\n  for (let line of lines) {\n      const trimmed = line.trim();\n      if (trimmed.length === 0) {\n          // Сохраняем пустые строки, но только если уже начали собирать контент\n          if (cleanLines.length > 0) cleanLines.push(line);\n          continue;\n      }\n\n      // Считаем русские и английские буквы\n      const ruCount = (trimmed.match(/[а-яА-ЯёЁ]/g) || []).length;\n      const enCount = (trimmed.match(/[a-zA-Z]/g) || []).length;\n\n      // Эвристика фильтрации:\n      // 1. Строка в основном на русском (ru >= en) -> ОСТАВЛЯЕМ\n      if (ruCount >= enCount) {\n          cleanLines.push(line);\n      } \n      // 2. Строка чисто на английском (много en, 0 ru) -> УДАЛЯЕМ\n      else if (enCount > 3 && ruCount === 0) {\n           continue; \n      } \n      // 3. Смесь, но английского сильно больше (en > ru * 1.5) -> УДАЛЯЕМ\n      // (Пример: \"Let's check snippet: <русская цитата>\")\n      else if (enCount > ruCount * 1.5) { \n           continue;\n      }\n      // 4. Мало текста (цифры, знаки) или сложный случай -> ОСТАВЛЯЕМ\n      else {\n           cleanLines.push(line);\n      }\n  }\n  \n  text = cleanLines.join('\\n').trim();\n}\n\nreturn { json: { output: text } };"
+        "jsCode": "// Simple cleanup: just remove service tags\nlet text = $input.item.json.output || '';\n\nif (typeof text === 'string') {\n  // Remove custom tags if any leak\n  text = text.replace(/<\\|.*?\\|>/g, '');\n  text = text.trim();\n}\n\nreturn { json: { output: text } };"
       },
       "id": "clean-output",
       "name": "Clean Output",
