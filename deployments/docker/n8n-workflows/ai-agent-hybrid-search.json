@@ -1,0 +1,209 @@
+{
+  "name": "AI Agent with Hybrid Search & Reranking",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "options": {}
+      },
+      "id": "ai-agent-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        220,
+        300
+      ],
+      "webhookId": "ai-agent-webhook"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a helpful AI assistant acting as a corporate knowledge base expert.\nLANGUAGE REQUIREMENT: ANSWER ONLY IN RUSSIAN.\n\nCRITICAL RULES (DO NOT IGNORE):\n1. **NO INTERNAL MONOLOGUE.** Do not output text like \"Let's analyze\", \"We have results\", \"Since the user asked\", \"Strategy:\", or \"Thought:\".\n2. **DIRECT ANSWER ONLY.** Start your response immediately with the answer to the user's question.\n3. **SILENT PROCESSING.** Analyze the search tool outputs silently. Do not describe what you found before giving the answer.\n4. If no information is found, state it clearly in Russian.\n\nИнструкции на русском:\n- Отвечай сразу по сути вопроса.\n- Не описывай свой процесс мышления (\"Давайте посмотрим...\", \"Результаты поиска содержат...\").\n- Используй найденную информацию для формирования ответа, но не пересказывай сырые данные инструмента.\n- Форматируй ответ списками для удобства чтения."
+        }
+      },
+      "id": "ai-agent-1",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-oss:20b",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "ollama-chat-1",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        460,
+        520
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollama-local",
+          "name": "Ollama Local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.sessionId || $('Webhook').item.json.sessionId || 'default' }}",
+        "tableName": "n8n_chat_histories",
+        "contextWindowLength": 10
+      },
+      "id": "postgres-memory-1",
+      "name": "Postgres Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        500,
+        520
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Use this tool to search for information in the corporate knowledge base. Always use this tool first before answering.",
+        "method": "POST",
+        "url": "http://llamaindex:8000/hybrid-query",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"{query}\",\n  \"match_count\": 15,\n  \"top_k\": 5,\n  \"full_text_weight\": 3.0,\n  \"semantic_weight\": 1.0,\n  \"use_reranking\": true\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "query",
+              "description": "Simple string with keywords to search",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "hybrid-search-tool",
+      "name": "Hybrid Search Tool",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 1,
+      "position": [
+        680,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Очистка вывода от Chain-of-Thought (умная фильтрация по языкам)\nlet text = $input.item.json.output;\n\nif (text && typeof text === 'string') {\n  const lines = text.split('\\n');\n  let cleanLines = [];\n\n  for (let line of lines) {\n      const trimmed = line.trim();\n      if (trimmed.length === 0) {\n          // Сохраняем пустые строки, но только если уже начали собирать контент\n          if (cleanLines.length > 0) cleanLines.push(line);\n          continue;\n      }\n\n      // Считаем русские и английские буквы\n      const ruCount = (trimmed.match(/[а-яА-ЯёЁ]/g) || []).length;\n      const enCount = (trimmed.match(/[a-zA-Z]/g) || []).length;\n\n      // Эвристика фильтрации:\n      // 1. Строка в основном на русском (ru >= en) -> ОСТАВЛЯЕМ\n      if (ruCount >= enCount) {\n          cleanLines.push(line);\n      } \n      // 2. Строка чисто на английском (много en, 0 ru) -> УДАЛЯЕМ\n      else if (enCount > 3 && ruCount === 0) {\n           continue; \n      } \n      // 3. Смесь, но английского сильно больше (en > ru * 1.5) -> УДАЛЯЕМ\n      // (Пример: \"Let's check snippet: <русская цитата>\")\n      else if (enCount > ruCount * 1.5) { \n           continue;\n      }\n      // 4. Мало текста (цифры, знаки) или сложный случай -> ОСТАВЛЯЕМ\n      else {\n           cleanLines.push(line);\n      }\n  }\n  \n  text = cleanLines.join('\\n').trim();\n}\n\nreturn { json: { output: text } };"
+      },
+      "id": "clean-output",
+      "name": "Clean Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"output\": \"{{ $json.output }}\"\n}",
+        "options": {}
+      },
+      "id": "respond-to-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Clean Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hybrid Search Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

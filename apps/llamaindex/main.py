@@ -53,6 +53,19 @@ reranker = SentenceTransformerRerank(
     top_n=3  # Количество лучших результатов после reranking
 )
 
+# ✅ КЭШ для reranker моделей с разными top_n
+# Избегаем повторной загрузки модели при каждом запросе
+_reranker_cache: dict[int, SentenceTransformerRerank] = {3: reranker}
+
+def get_cached_reranker(top_n: int = 3) -> SentenceTransformerRerank:
+    """Получить кэшированный reranker с заданным top_n"""
+    if top_n not in _reranker_cache:
+        _reranker_cache[top_n] = SentenceTransformerRerank(
+            model="BAAI/bge-reranker-v2-m3",
+            top_n=top_n
+        )
+    return _reranker_cache[top_n]
+
 # ✅ Инициализация vector store
 vector_store = PGVectorStore.from_params(
     database=os.getenv("POSTGRES_DB", "postgres"),
@@ -240,8 +253,8 @@ async def init_supabase():
 
 class HybridQueryRequest(BaseModel):
     query: str
-    match_count: int = 10
-    top_k: int = 3  # Final results after reranking
+    match_count: int = 40
+    top_k: int = 5  # Final results after reranking
     table_name: str = "documents"  # Table with hybrid_search function
     full_text_weight: float = 1.0
     semantic_weight: float = 1.0
@@ -309,17 +322,11 @@ async def hybrid_query(request: HybridQueryRequest):
                 # Начальный score (будет перезаписан reranker'ом)
                 nodes_with_scores.append(NodeWithScore(node=node, score=1.0))
             
-            # 4. Применяем BGE reranking
-            from llama_index.core.query_engine import RetrieverQueryEngine
-            
-            # Создаем временный reranker с нужным top_n
-            temp_reranker = SentenceTransformerRerank(
-                model="BAAI/bge-reranker-v2-m3",
-                top_n=request.top_k
-            )
+            # 4. Применяем BGE reranking (используем кэшированную модель)
+            cached_reranker = get_cached_reranker(request.top_k)
             
             # Применяем reranking
-            reranked_nodes = temp_reranker.postprocess_nodes(
+            reranked_nodes = cached_reranker.postprocess_nodes(
                 nodes_with_scores,
                 query_str=request.query
             )
@@ -328,7 +335,7 @@ async def hybrid_query(request: HybridQueryRequest):
             results = []
             for node_with_score in reranked_nodes:
                 results.append({
-                    "content": node_with_score.node.text[:500],
+                    "content": node_with_score.node.text,
                     "score": float(node_with_score.score) if node_with_score.score else None,
                     "metadata": node_with_score.node.metadata
                 })
@@ -344,7 +351,7 @@ async def hybrid_query(request: HybridQueryRequest):
             results = []
             for doc in documents[:request.top_k]:
                 results.append({
-                    "content": doc.get("content", "")[:500],
+                    "content": doc.get("content", ""),
                     "score": None,
                     "metadata": doc.get("metadata", {})
                 })
@@ -375,12 +382,10 @@ async def rerank_documents(query: str, documents: list[dict], top_k: int = 3):
             )
             nodes_with_scores.append(NodeWithScore(node=node, score=1.0))
         
-        temp_reranker = SentenceTransformerRerank(
-            model="BAAI/bge-reranker-v2-m3",
-            top_n=top_k
-        )
+        # Используем кэшированный reranker
+        cached_reranker = get_cached_reranker(top_k)
         
-        reranked_nodes = temp_reranker.postprocess_nodes(
+        reranked_nodes = cached_reranker.postprocess_nodes(
             nodes_with_scores,
             query_str=query
         )
