@@ -40,6 +40,12 @@ services:
       - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=true
       - N8N_METRICS_INCLUDE_DEFAULT_METRICS=true
       - N8N_RESTRICT_FILE_ACCESS_TO=/data/shared;/app/data;/home/node/.n8n-files
+      - N8N_COMMUNITY_PACKAGES_ENABLED=true
+      - N8N_UNVERIFIED_PACKAGES_ENABLED=true
+      # Langfuse Tracing
+      - N8N_LANGFUSE_HOST=http://langfuse:3000
+      - N8N_LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - N8N_LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
     volumes:
       - n8n-data:/home/node/.n8n
       - ./shared:/data/shared
@@ -321,12 +327,13 @@ services:
     ports:
       - "9099:9099"
     volumes:
-      - pipelines:/app/pipelines
+      - ./pipelines:/app/pipelines
     environment:
       PIPELINES_API_KEY: 0p3n-w3bu!
       LANGFUSE_HOST: http://langfuse:3000
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      DEBUG_MODE: "true"
 
 networks:
   ai-network:
