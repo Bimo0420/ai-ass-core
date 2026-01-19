@@ -1,1 +1,57 @@
+# Environment
+.env
+.env.local
+.env.*.local
 deployments/docker/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes (data persistence)
+volumes/grafana/
+volumes/n8n/
+volumes/ollama/
+volumes/postgres/
+
+# Logs
+*.log
+logs/
+
+# Secrets
+*.pem
+*.key
+secrets/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Backups
+backups/
+*.backup
+*.bak

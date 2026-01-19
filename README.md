@@ -215,23 +215,4 @@ make health            \# Проверка здоровья
 ⭐ Если проект был полезен, поставьте звезду на GitHub!
 
 </div>
-```
-
-
-***
-
-## Следующие шаги
-
-Теперь я могу создать любой из файлов документации из этой структуры. Какие разделы вы хотите создать в первую очередь? Рекомендую начать с:
-
-1. `docs/setup/installation.md` - детальная установка
-2. `docs/setup/configuration.md` - конфигурация
-3. `docs/operations/management.md` - управление стеком
-4. `docs/operations/backup-restore.md` - бэкапы
-5. `docs/troubleshooting/common-issues.md` - типовые проблемы
-<span style="display:none">[^1]</span>
-
-<div align="center">⁂</div>
-
-[^1]: README-kopiia.md
 
