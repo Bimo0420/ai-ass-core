@@ -7,6 +7,7 @@ volumes:
   openwebui-data:
   pipelines:
   docling-data:
+  huggingface-cache:  # Кэш для моделей reranker
 
 services:
   # n8n - платформа автоматизации
@@ -39,6 +40,12 @@ services:
       - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=true
       - N8N_METRICS_INCLUDE_DEFAULT_METRICS=true
       - N8N_RESTRICT_FILE_ACCESS_TO=/data/shared;/app/data;/home/node/.n8n-files
+      - N8N_COMMUNITY_PACKAGES_ENABLED=true
+      - N8N_UNVERIFIED_PACKAGES_ENABLED=true
+      # Langfuse Tracing
+      - N8N_LANGFUSE_HOST=http://langfuse:3000
+      - N8N_LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - N8N_LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
     volumes:
       - n8n-data:/home/node/.n8n
       - ./shared:/data/shared
@@ -121,6 +128,8 @@ services:
       - WEBUI_AUTH=true
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
       - CORS_ALLOW_ORIGIN=https://openwebui.${DOMAIN}
+      # Langfuse Integration
+      - ENABLE_LANGFUSE=true
       - LANGFUSE_HOST=http://langfuse:3000
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
@@ -277,7 +286,8 @@ services:
       - "8000:8000"
     environment:
       OLLAMA_URL: ${OLLAMA_URL}
-      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_URL: http://supabase-kong:8000
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       POSTGRES_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -285,6 +295,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - ./llamaindex/data:/app/data
+      - ../../apps/llamaindex/main.py:/app/main.py
+      - huggingface-cache:/root/.cache/huggingface  # Кэш для reranker модели
     depends_on:
       - ollama
       - postgres
@@ -320,7 +332,7 @@ services:
     ports:
       - "9099:9099"
     volumes:
-      - pipelines:/app/pipelines
+      - ./pipelines:/app/pipelines
     environment:
       # API key for authentication
       PIPELINES_API_KEY: 0p3n-w3bu!
@@ -329,3 +341,7 @@ services:
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
       DEBUG_MODE: "true"
+
+networks:
+  ai-network:
+    external: true

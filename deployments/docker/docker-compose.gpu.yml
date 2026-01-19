@@ -1,4 +1,4 @@
-# GPU-ускоренная версия Ollama
+# GPU-ускоренная версия Ollama и LlamaIndex
 version: '3.8'
 
 services:
@@ -6,6 +6,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
+    runtime: nvidia
     restart: unless-stopped
     networks:
       - ai-network
