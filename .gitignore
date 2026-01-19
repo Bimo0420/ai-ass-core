@@ -3,6 +3,7 @@
 .env.local
 .env.*.local
 deployments/docker/.env
+deployments/docker/test.env
 
 # Python
 __pycache__/
@@ -55,3 +56,6 @@ temp/
 backups/
 *.backup
 *.bak
+
+# .md files
+PROJECT_STRUCTURE.md
