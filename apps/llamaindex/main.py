@@ -7,7 +7,6 @@ from llama_index.core import (
     StorageContext
 )
 from llama_index.core.postprocessor import SentenceTransformerRerank
-from llama_index.llms.ollama import Ollama
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.postgres import PGVectorStore
 import os
@@ -29,20 +28,12 @@ POSTGRES_URL = os.getenv(
     )
 )
 
-# Настройка LLM
-llm = Ollama(
-    model="tinyllama",  # или gpt-oss:20b для лучшего качества
-    base_url=OLLAMA_URL,
-    request_timeout=120.0
-)
-
 # Настройка локальных embeddings через Ollama
 embed_model = OllamaEmbedding(
     model_name="nomic-embed-text",
     base_url=OLLAMA_URL,
 )
 
-Settings.llm = llm
 Settings.embed_model = embed_model
 Settings.chunk_size = 512
 
@@ -82,10 +73,7 @@ storage_context = StorageContext.from_defaults(vector_store=vector_store)
 # Глобальная переменная для индекса
 index = None
 
-class QueryRequest(BaseModel):
-    query: str
-    top_k: int = 3
-    use_reranking: bool = True  # Включить/выключить reranking
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -112,11 +100,11 @@ async def root():
 async def index_document(file: UploadFile = File(...)):
     """Загрузка и индексация документа"""
     try:
-        # Используем /tmp для временных файлов (всегда доступен для записи)
-        temp_dir = "/tmp"
+        # Создание директории data если её нет
+        os.makedirs("./data", exist_ok=True)
         
         # Сохранение файла
-        file_path = f"{temp_dir}/{file.filename}"
+        file_path = f"./data/{file.filename}"
         with open(file_path, "wb") as f:
             content = await file.read()
             f.write(content)
@@ -152,8 +140,8 @@ class IndexTextRequest(BaseModel):
 async def index_text(request: IndexTextRequest):
     """Индексация текста напрямую без файла"""
     try:
-        # Создаём временный файл в /tmp
-        file_path = f"/tmp/{request.filename}"
+        # Создаём временный файл
+        file_path = f"./data/{request.filename}"
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(request.content)
         
@@ -178,40 +166,7 @@ async def index_text(request: IndexTextRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
         
-@app.post("/query")
-async def query_documents(request: QueryRequest):
-    """Поиск по индексированным документам с опциональным reranking"""
-    try:
-        # Если reranking включён, получаем больше кандидатов для переранжирования
-        if request.use_reranking:
-            query_engine = index.as_query_engine(
-                similarity_top_k=10,  # Получаем 10 кандидатов
-                node_postprocessors=[reranker]  # Rerank до top_n=3
-            )
-        else:
-            query_engine = index.as_query_engine(
-                similarity_top_k=request.top_k
-            )
-        
-        response = query_engine.query(request.query)
-        
-        # Извлечение источников
-        sources = []
-        for node in response.source_nodes:
-            sources.append({
-                "text": node.node.text[:200],
-                "score": float(node.score) if node.score is not None else None,  # Fix numpy.float32 serialization
-                "metadata": node.node.metadata
-            })
-        
-        return {
-            "response": str(response),
-            "sources": sources,
-            "query": request.query,
-            "reranking_used": request.use_reranking
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/health")
 async def health_check():
