@@ -44,8 +44,8 @@
 |-----|------|---------------------|
 | RTX 3060 | 12 GB | qwen3:8b, llama3:8b |
 | RTX 3080 | 10 GB | qwen3:8b, llama3:8b |
-| RTX 3090 | 24 GB | qwen3:14b, llama3:8b |
-| RTX 4090 | 24 GB | qwen3:30b, llama3:70b (quantized) |
+| RTX 3090 | 24 GB | gpt-oss:20b, qwen3:14b, llama3:8b |
+| RTX 4090 | 24 GB | gpt-oss:20b, qwen3:30b, llama3:70b (quantized) |
 | A100 | 40/80 GB | Все модели до 70B |
 
 ---
