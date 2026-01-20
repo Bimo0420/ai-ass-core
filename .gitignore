@@ -59,3 +59,14 @@ backups/
 
 # .md files
 PROJECT_STRUCTURE.md
+agents.md
+
+# Deployment configs and docs
+deployments/docker/supabase/HYBRID_SEARCH_SETUP.md
+deployments/docker/supabase/kong.yml
+deployments/docker/n8n-workflows/README.md
+deployments/docker/pipelines/langfuse_v3_filter_pipeline/langfuse_v3_filter_pipeline.py
+
+# Folders
+scripts/
+deployments/docker/supabase/migrations/
