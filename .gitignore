@@ -70,3 +70,4 @@ deployments/docker/pipelines/langfuse_v3_filter_pipeline/langfuse_v3_filter_pipe
 # Folders
 scripts/
 deployments/docker/supabase/migrations/
+gitignore/
